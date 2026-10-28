@@ -1,0 +1,1 @@
+window.LIBRARY_CONFIG={"kind": "exam", "name": "Exam Library", "noun": "exam", "plural": "exams", "repo": "science-vault/exam-library"};
