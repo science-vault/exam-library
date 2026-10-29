@@ -16,3 +16,6 @@
 input::placeholder,textarea::placeholder{color:var(--readable-muted);opacity:1}button:disabled{opacity:.65}
 
 .sidebar-bottom p,.sidebar-quote small,.hero .eyebrow{font-size:11px}nav button b{font-size:11px}
+
+/* Exam previews need the full dialog width, including Word documents. */
+dialog#details[open]{display:block}#details .detail-content{width:100%;min-width:0}#details #player{width:100%;min-width:0}#details #player iframe{min-width:0}
