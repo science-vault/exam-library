@@ -25,7 +25,7 @@ def is_key(path):
 def pair_name(path):
  return re.sub(r'[^a-z0-9]','',re.sub(KEY_WORDS,'',path.stem.lower().replace('_',' ')))
 def usable(path):
- return path.suffix.lower() in ['.pdf','.doc','.docx'] and not any(part.startswith(('._','~$')) or part=='.DS_Store' for part in path.parts)
+ return path.suffix.lower() in ['.pdf','.doc','.docx'] and not any(part.startswith(('._','~$','-$')) or part=='.DS_Store' for part in path.parts)
 def infer(path):
  parts=path.parts;b=dict(title=path.stem,subject='Uncategorised',years=[],school='',examType='',topic='',description='',author='')
  for i,part in enumerate(parts[:-1]):

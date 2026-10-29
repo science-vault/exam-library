@@ -33,11 +33,11 @@ class UploadedFormats(unittest.TestCase):
    (p/'Human biology marking guide final.doc').write_bytes(b'word-key')
    (p/'Copy of another exam.docx').write_bytes(b'word-other')
    (p/'Another exam.docx').write_bytes(b'word-other')
-   (p/'._MacExam.pdf').write_bytes(b'metadata');(p/'~$exam.docx').write_bytes(b'lock')
+   (p/'._MacExam.pdf').write_bytes(b'metadata');(p/'~$exam.docx').write_bytes(b'lock');(p/'-$exam.doc').write_bytes(b'lock')
    out=build(r)['resources'];self.assertEqual(len(out),2)
    paper=next(b for b in out if 'markingKeyUrl' in b)
    self.assertEqual((paper['subject'],paper['format']),('Human Biology','DOCX'));self.assertIn('officeapps.live.com',paper['previewUrl']);self.assertIn('officeapps.live.com',paper['markingKeyPreviewUrl'])
-   report=json.loads((r/'site/import-report.json').read_text());self.assertEqual(report['sourceDocuments'],4);self.assertEqual(report['unaccountedDocuments'],[]);self.assertEqual(len(report['ignoredMetadataFiles']),2)
+   report=json.loads((r/'site/import-report.json').read_text());self.assertEqual(report['sourceDocuments'],4);self.assertEqual(report['unaccountedDocuments'],[]);self.assertEqual(len(report['ignoredMetadataFiles']),3)
  def test_ambiguous_keys_remain_separate(self):
   with tempfile.TemporaryDirectory() as d:
    r=Path(d);p=r/'resources/Secondary/Science/Year 12/Physics/2020';p.mkdir(parents=True)

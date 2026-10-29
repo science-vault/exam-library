@@ -11,7 +11,13 @@ function persist(){try{localStorage.setItem(key+'-saved',JSON.stringify([...save
 function yearLabel(b){if(!b.years.length)return 'Year not specified';const y=[...b.years].sort((a,b)=>a-b);return y.length===1?'Year '+y[0]:'Years '+y.join(', ');}
 function savedText(){return 'Saved exams';}
 function toggle(id){saved.has(id)?saved.delete(id):saved.add(id);persist();render();if(current?.id===id)$('saveResource').textContent=saved.has(id)?'Saved ✓':'Save';toast(saved.has(id)?'Saved on this device.':'Removed from saved resources.');}
-function cover(b){const n=node('div','media-cover');n.dataset.tone=String([...b.id].reduce((s,c)=>s+c.charCodeAt(0),0)%4);n.append(node('span','',b.subject+' / '+(b.topic||C.noun)),node('strong','',b.title),node('i','',C.kind==='video'?'▷':'▱'));const src=safeURL(b.thumbnail)||(/^assets\/[a-z0-9.-]+$/i.test(b.thumbnail||'')?b.thumbnail:null);if(src){const img=document.createElement('img');img.src=src;img.alt='';img.loading='lazy';img.onerror=()=>img.remove();n.append(img);}return n;}
+function cover(b){
+ const n=node('div','media-cover document-cover');
+ const fallback=node('div','document-placeholder');fallback.append(node('span','document-filetype',b.format||'DOCUMENT'),node('span','','First-page preview unavailable'),node('span','document-open','Open document ↗'));n.append(fallback);
+ const src=safeURL(b.thumbnail)||(/^assets\/(?:thumbnails\/)?[a-z0-9.-]+$/i.test(b.thumbnail||'')?b.thumbnail:null);
+ if(src){fallback.hidden=true;const img=document.createElement('img');img.src=src;img.alt='First page of '+b.title;img.loading='lazy';img.decoding='async';img.width=636;img.height=900;img.onerror=()=>{img.remove();fallback.hidden=false;n.classList.add('preview-unavailable');};n.append(img);}else n.classList.add('preview-unavailable');
+ const label=node('span','document-preview-label','Preview document ↗');n.append(label);return n;
+}
 function card(b){const a=node('article','resource-card'),p=node('button','preview-button');p.type='button';p.setAttribute('aria-label',(C.kind==='video'?'Watch ':'Preview ')+b.title);p.append(cover(b));p.onclick=()=>details(b);const foot=node('div','card-bottom'),save=node('button','',saved.has(b.id)?'Saved ✓':'＋ Save');save.type='button';save.setAttribute('aria-label',(saved.has(b.id)?'Unsave ':'Save ')+b.title);save.setAttribute('aria-pressed',String(saved.has(b.id)));save.onclick=()=>toggle(b.id);foot.append(node('span','',yearLabel(b)),save);a.append(p,node('h3','',b.title),node('p','',b.author||b.subject),node('p','',[...new Set([b.school,b.examYear,b.examType,b.documentRole,b.format].filter(Boolean))].join(' · ')),foot);return a;}
 function videoSource(value){const url=safeURL(value);if(!url)return null;const u=new URL(url),h=u.hostname.replace(/^www\./,'');let id;
  if(h==='youtu.be')id=u.pathname.split('/')[1];else if(h==='youtube.com'||h==='m.youtube.com')id=u.searchParams.get('v')||u.pathname.match(/^\/(?:embed|shorts)\/([^/]+)/)?.[1];
