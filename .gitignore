@@ -1,3 +1,9 @@
 .openai/
 __pycache__/
 *.pyc
+
+# Operating-system metadata and Office temporary files
+.DS_Store
+._*
+__MACOSX/
+~$*
