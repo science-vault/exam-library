@@ -10,9 +10,9 @@ Use one folder per exam:
 
 `resources/Secondary/Physics/Year 12/School name/2026/Semester 1/MarkingKey.pdf`
 
-Use `Primary` for Years 1–6. Subject and school folders can have any name. Exam year is the calendar year, separate from the student's year level. Science template folders for Years 1–12 are included.
+Use `Primary` for Years 1–6. Subject and school folders can have any name. The alternative `resources/Secondary/Science/Year 11/Chemistry/2026/` layout is also supported; subject names are never used as school names. Exam year is the calendar year, separate from the student's year level. Science template folders for Years 1–12 are included.
 
-Canonical `Paper.pdf` and `MarkingKey.pdf` are paired automatically within the same folder. `Exam.pdf` or `QuestionPaper.pdf`, and `Answers.pdf` or `Solutions.pdf`, are also recognised. Other PDFs are listed individually; give unrelated exams their own folders. Identical paper/key pairs are deduplicated. No marking key is created or claimed when one is absent.
+Canonical `Paper.pdf` and `MarkingKey.pdf` are paired automatically within the same folder. `Exam.pdf` or `QuestionPaper.pdf`, and `Answers.pdf` or `Solutions.pdf`, are also recognised. PDF, DOC and DOCX files are supported. Unambiguous paper/key filenames that differ only by “marking guide”, “answers” or “solutions” are also paired within the same folder. Other documents are listed individually; give unrelated exams their own folders. Identical paper/key pairs are deduplicated. No marking key is created or claimed when one is absent.
 
 Optional `exam.json` in the folder overrides details:
 
@@ -32,7 +32,7 @@ The marking-key link is optional. `previewUrl` and `markingKeyPreviewUrl` may po
 
 ## Publishing and features
 
-A push runs the catalogue tests, indexes the files and publishes the separate website with GitHub Actions. PDF previews are generated as copies in the deployed site; source files remain in their folders. Choose **GitHub Actions** in Settings → Pages.
+A push runs the catalogue tests, indexes the files and publishes the separate website with GitHub Actions. PDF previews are generated as copies in the deployed site; source files remain in their folders. Word previews use Office on the web with the original public document. Temporary Office lock files and macOS metadata are ignored. `site/import-report.json` summarises the import. Choose **GitHub Actions** in Settings → Pages.
 
 Search; subject, school, year level, exam year, exam type and topic filters; PDF viewer; paired marking-key links; saved exams and recent history on the visitor's device. The catalogue starts empty and contains no demonstration papers. There is no public upload/admin approval backend yet; repository access is required to publish.
 
