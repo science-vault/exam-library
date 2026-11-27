@@ -18,18 +18,84 @@ def validate(b):
   if k in b and not isinstance(b[k],str):raise ValueError(k+' must be text')
  return b
 SUBJECTS={x.casefold():x for x in ['Physics','Chemistry','Human Biology','Biology','Psychology','Science','Mathematics Methods','Mathematics Applications','Mathematics Specialist','English','Geography','History','Economics']}
-KEY_WORDS=r'marking[ _-]*(?:guide|key|scheme)|mark[ _-]*(?:key|scheme)|answer(?:s)?|solutions?|solns?|\bmk\b|\bans\b|\bkeys?\b'
+KEY_WORDS = (
+    r'\b(?:marking[ -]*(?:guides?|keys?|schemes?)|mark[ -]*(?:keys?|schemes?)'
+    r'|(?:worked[ -]+)?solutions?|solns?|answers?|mk|ans|keys?)\b'
+)
+QUESTION_BOOKLET = r'\b(?:questions?(?:(?: and)? answer)? (?:papers?|booklets?|only)|q(?:a| and a)? (?:papers?|booklets?|only))\b'
+PAPER_WORDS = r'\b(?:exams?|examinations?|papers?|suggested|ratified|web only version)\b'
+
+
+def filename(path):
+    return re.sub(r'[^a-z0-9]+', ' ', path.stem.casefold()).strip()
+
+
 def is_key(path):
- name=path.stem.replace('_',' ')
- return not re.search(r'(?:no|without|with|and)\s+(?:answers|solutions)',name,re.I) and bool(re.search(KEY_WORDS,name,re.I))
-def pair_name(path):
- return re.sub(r'[^a-z0-9]','',re.sub(KEY_WORDS,'',path.stem.lower().replace('_',' ')))
+    name = filename(path)
+    if re.search(r'&\s*(?:answers?|solutions?)\b', path.stem, re.I):
+        return False
+    if re.search(r'\b(?:and|with|without|no) (?:answers?|solutions?)\b', name):
+        return False
+    if re.search(r'\bquestions? (?:and )?answer (?:papers?|booklets?)\b', name):
+        return False
+    return bool(re.search(KEY_WORDS, name))
+
+
+def pair_name(path, *, strip_paper_words=False):
+    stem = re.sub(r'\s*\(\d+\)$', '', path.stem)
+    stem = re.sub(r'\.(?:pdf|docx?)$', '', stem, flags=re.I)
+    name = re.sub(QUESTION_BOOKLET, ' ', filename(Path(stem + '.pdf')))
+    name = re.sub(KEY_WORDS, ' ', name)
+    if strip_paper_words:
+        name = re.sub(PAPER_WORDS, ' ', name)
+        name = re.sub(r'\b(?:final|copy|v\d+|\d{6})\b', ' ', name)
+        if {'eta', 'english'}.issubset(name.split()):
+            name = ' '.join(sorted(set(name.split()) - {'atar', 'year'}))
+    return ''.join(name.split())
+
+
+def exam_pairs(documents):
+    def folder(path):
+        parent = path.parent
+        if re.fullmatch(r'(?:marking[ _-]*(?:keys?|guides?|schemes?)|solutions?|answers?|papers?|question[ _-]+(?:papers?|booklets?))', parent.name, re.I):
+            return parent.parent
+        return parent
+
+    folders = {}
+    for path in documents:
+        folders.setdefault(folder(path), []).append(path)
+    pairs = {}
+    for files in folders.values():
+        papers = [path for path in files if not is_key(path)]
+        for key in filter(is_key, files):
+            exact = pair_name(key)
+            matches = [paper for paper in papers if exact and pair_name(paper) == exact]
+            if not matches:
+                broad = pair_name(key, strip_paper_words=True)
+                matches = [
+                    paper for paper in papers
+                    if broad and pair_name(paper, strip_paper_words=True) == broad
+                ]
+            if not matches and not exact:
+                canonical = [
+                    paper for paper in papers if filename(paper) in
+                    {'paper', 'exam', 'questionpaper', 'question paper'}
+                ]
+                if len({filename(paper) for paper in canonical}) == 1:
+                    matches = canonical
+            for paper in matches:
+                pairs.setdefault(paper, []).append(key)
+    return pairs
+
+
 def usable(path):
  return path.suffix.lower() in ['.pdf','.doc','.docx'] and not any(part.startswith(('._','~$','-$')) or part=='.DS_Store' for part in path.parts)
 def infer(path):
  parts=path.parts;b=dict(title=path.stem,subject='Uncategorised',years=[],school='',examType='',topic='',description='',author='')
  for i,part in enumerate(parts[:-1]):
   m=re.fullmatch(r'Year[ _-]*(\d{1,2})',part,re.I)
+  if not m and i == 3 and parts[1].casefold() in {'primary', 'secondary'}:
+   m=re.fullmatch(r'(0?[1-9]|1[0-2])',part)
   if not m:continue
   b['years']=[int(m[1])];before=parts[i-1] if i else 'Uncategorised';tail=list(parts[i+1:-1])
   # Support both Subject/Year and Science/Year/Subject upload layouts.
@@ -69,23 +135,13 @@ def build(root):
   validate(b)
   if identity in seen:
    seen[identity].setdefault('alternateSourcePaths',[]).append(b['sourcePath'])
-   if b.get('markingKeySourcePath'):seen[identity].setdefault('alternateMarkingKeySourcePaths',[]).append(b['markingKeySourcePath'])
+   for key_path in [b.get('markingKeySourcePath'), *(item.get('sourcePath') for item in b.get('relatedResources', []))]:
+    if key_path:seen[identity].setdefault('alternateMarkingKeySourcePaths',[]).append(key_path)
   else:seen[identity]=b;rows.append(b)
  def copy(p):
   sha=hashlib.sha256(p.read_bytes()).hexdigest();dest='assets/'+sha+'.pdf';shutil.copyfile(p,site/dest);return sha,base+dest
- # Pair canonical names, or one exact normalised paper/key name in the same folder.
- pairs={}
- for folder in sorted({p.parent for p in files if usable(p)}):
-  documents=[p for p in files if p.parent==folder and usable(p)]
-  lookup={p.name.lower():p for p in documents}
-  paper=next((lookup[n+ext] for n in ['paper','exam','questionpaper','question paper'] for ext in ['.pdf','.docx','.doc'] if n+ext in lookup),None)
-  key=next((lookup[n+ext] for n in ['markingkey','marking key','marking_key','answers','solutions'] for ext in ['.pdf','.docx','.doc'] if n+ext in lookup),None)
-  if paper and key:pairs[paper]=key;consumed.add(key)
-  candidates={pair_name(p) for p in documents if is_key(p) and p not in consumed}
-  for name in candidates:
-   papers=[p for p in documents if not is_key(p) and p not in pairs and pair_name(p)==name]
-   keys=[p for p in documents if is_key(p) and p not in consumed and pair_name(p)==name]
-   if len(papers)==1 and len(keys)==1:pairs[papers[0]]=keys[0];consumed.add(keys[0])
+ pairs = exam_pairs(p for p in files if usable(p))
+ consumed.update(key for keys in pairs.values() for key in keys)
  def preview(p):
   if p.suffix.lower()=='.pdf':return copy(p)
   sha=hashlib.sha256(p.read_bytes()).hexdigest();url=raw+quote(p.relative_to(root).as_posix())
@@ -95,17 +151,30 @@ def build(root):
   b=infer(p.relative_to(root));sha,preview_url=preview(p);b.update(url=raw+quote(p.relative_to(root).as_posix()),previewUrl=preview_url,format=p.suffix[1:].upper())
   identity=sha
   if p in pairs:
-   key=pairs[p];ks,kpreview=preview(key);b.update(markingKeyUrl=raw+quote(key.relative_to(root).as_posix()),markingKeyPreviewUrl=kpreview,markingKeySourcePath=key.relative_to(root).as_posix());identity+=':'+ks
+   related = []
+   for key in sorted(pairs[p], key=lambda path: (path.suffix.lower() != '.pdf', path)):
+    key_sha, key_preview = preview(key)
+    key_path = key.relative_to(root).as_posix()
+    key_url = raw + quote(key_path)
+    identity += ':' + key_sha
+    if 'markingKeyUrl' not in b:
+     b.update(markingKeyUrl=key_url, markingKeyPreviewUrl=key_preview, markingKeySourcePath=key_path)
+    else:
+     related.append(dict(title=key.name, url=key_url, previewUrl=key_preview, sourcePath=key_path))
+   if related:
+    b['relatedResources'] = related
   for side in [p.parent/'exam.json',p.with_suffix('.json')]:
    if side.exists():
     value=json.loads(side.read_text())
-    if 'url' not in value:b.update(value);consumed.add(side)
+    if 'url' not in value:
+     b.update(value)
+     consumed.add(side)
   finish(b,p,'file:'+identity)
  for p in files:
   if p.suffix.lower()!='.json' or p in consumed:continue
   value=json.loads(p.read_text());b=infer(p.relative_to(root));b.update(value);validate(b);finish(b,p,'url:'+b['url']+'|'+b.get('markingKeyUrl',''))
  accounted=set()
- for b in rows:accounted.update([b['sourcePath'],*b.get('alternateSourcePaths',[]),*b.get('alternateMarkingKeySourcePaths',[])]);accounted.update([b['markingKeySourcePath']] if b.get('markingKeySourcePath') else [])
+ for b in rows:accounted.update([b['sourcePath'],*b.get('alternateSourcePaths',[]),*b.get('alternateMarkingKeySourcePaths',[])]);accounted.update([b['markingKeySourcePath']] if b.get('markingKeySourcePath') else []);accounted.update(item['sourcePath'] for item in b.get('relatedResources', []) if 'sourcePath' in item)
  missing=[p.relative_to(root).as_posix() for p in files if usable(p) and p.relative_to(root).as_posix() not in accounted]
  if missing:raise ValueError('Documents missing from catalogue: '+str(missing))
  report={'unaccountedDocuments':missing,'sourceDocuments':sum(usable(p) for p in files),'indexedRecords':len(rows),'pairedKeys':sum('markingKeyUrl' in b for b in rows),'exactDuplicateSources':sum(len(b.get('alternateSourcePaths',[])) for b in rows),'formats':{f:sum(b['format']==f for b in rows) for f in ['PDF','DOC','DOCX']},'subjects':{subject:sum(b['subject']==subject for b in rows) for subject in sorted({b['subject'] for b in rows})},'ignoredMetadataFiles':ignored};(site/'import-report.json').write_text(json.dumps(report,indent=2)+'\n')

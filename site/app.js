@@ -32,7 +32,24 @@ function details(b){current=b;remember(b);$('detailTitle').textContent=b.title;$
  const vals=[['School / provider',b.school||'Not specified'],['Exam year',b.examYear?String(b.examYear):'Not specified'],['Exam type',b.examType||'Not specified'],['Year levels',yearLabel(b)],['Topic',b.topic||'Not specified'],['Document',b.documentRole||'Exam paper'],['Format',b.format||C.noun],...(b.slideCount?[['Slides',String(b.slideCount)]]:[]),...(b.duration?[['Duration',b.duration]]:[])];$('detailMetadata').replaceChildren(...vals.flatMap(([k,v])=>[node('dt','',k),node('dd','',v)]));
  let source;if(C.kind==='video')source=videoSource(b.url);else if(safeURL(b.previewUrl))source={type:'iframe',url:b.previewUrl};else if(/\.pdf(?:[?#]|$)/i.test(b.url))source={type:'iframe',url:b.url};else if(/\.(?:pptx?|docx?)(?:[?#]|$)/i.test(b.url))source={type:'iframe',url:'https://view.officeapps.live.com/op/embed.aspx?src='+encodeURIComponent(b.url)};
  if(source){const media=document.createElement(source.type);if(source.type==='video'){media.controls=true;media.preload='metadata';media.playsInline=true;}else{media.title='Preview: '+b.title;media.allow='fullscreen; picture-in-picture; encrypted-media';media.referrerPolicy='strict-origin-when-cross-origin';media.setAttribute('allowfullscreen','');}media.src=source.url;$('player').append(media);$('fullscreen').hidden=false;}else message('This resource opens on its original host. Use the button below to view it.');
- const key=safeURL(b.markingKeyUrl);$('openKey').hidden=$('previewKey').hidden=!key;if(key)$('openKey').href=key;$('previewKey').onclick=()=>{const frame=document.createElement('iframe');frame.title='Marking key: '+b.title;frame.src=safeURL(b.markingKeyPreviewUrl)||key;$('player').replaceChildren(frame);};$('details').showModal();
+ const key=safeURL(b.markingKeyUrl);$('openKey').hidden=$('previewKey').hidden=!key;if(key)$('openKey').href=key;$('previewKey').onclick=()=>{const frame=document.createElement('iframe');frame.title='Marking key: '+b.title;frame.src=safeURL(b.markingKeyPreviewUrl)||key;$('player').replaceChildren(frame);};const links = (b.relatedResources || []).flatMap(resource => {
+  const url = safeURL(resource.url);
+  if (!url) return [];
+  const link = node('a', 'outline', resource.title);
+  link.href = url;
+  link.target = '_blank';
+  link.rel = 'noopener';
+  return [link];
+ });
+ let extraKeys = $('extraKeys');
+ if (!extraKeys) {
+  extraKeys = node('div', 'detail-metadata');
+  extraKeys.id = 'extraKeys';
+  $('openKey').parentElement.after(extraKeys);
+ }
+ extraKeys.replaceChildren(...links);
+ extraKeys.hidden = !links.length;
+ $('details').showModal();
 }
 function closeDetails(){$('details').close();$('player').replaceChildren();current=null;}
 function reset(){['search','subject','year','topic','school','examYear','examType'].forEach(id=>$(id).value='');updateTopics();render();}
